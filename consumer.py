@@ -42,7 +42,7 @@ class GitHubCommitConsumer:
                 author = commit["commit"]["author"]["name"]
                 message = commit["commit"]["message"].split("\n")[0]
 
-                print(f"Commit {sha[:7]} by {author}: {message}")
+                print(f"Commit from {date} with {sha[:7]} by {author}: {message}")
 
         except KeyboardInterrupt:
             print("\nStopping consumer...")

@@ -75,7 +75,7 @@ class GitHubCommitProducer:
         date = commit_info.get("author", {}).get("date", "unknown")
         message = commit_info.get("message", "").split("\n")[0]  # first line
 
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] Commit {sha[:7]} by {author}: {message}")
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] Commit from {date} with {sha[:7]} by {author}: {message}")
 
         if self.publish_to_kafka(commit):
             print(f"  ✓ Published {sha}")
