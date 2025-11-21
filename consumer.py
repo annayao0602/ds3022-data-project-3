@@ -34,12 +34,15 @@ class GitHubCommitConsumer:
                 if msg.error():
                     print("Consumer error:", msg.error())
                     continue
-
+                
                 sha = msg.key().decode("utf-8") if msg.key() else None
-                commit = msg.value()
+                #current 
+                commit_bytes = msg.value()
+                commit = json.loads(commit_bytes.decode("utf-8"))
+                author = commit["commit"]["author"]["name"]
                 date_str = commit["commit"]["author"]["date"]
                 date = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-                author = commit["commit"]["author"]["name"]
+                
                 message = commit["commit"]["message"].split("\n")[0]
 
                 print(f"Commit from {date} with {sha[:7]} by {author}: {message}")
