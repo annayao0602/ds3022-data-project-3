@@ -52,7 +52,7 @@ app.layout = html.Div([
 )
 def update_dashboard(n):
     try:
-        conn = duckdb.connect("commits.db, read_only=True")
+        conn = duckdb.connect("commits.duckdb", read_only=True)
         df = conn.execute("""
             SELECT 
                 date,
