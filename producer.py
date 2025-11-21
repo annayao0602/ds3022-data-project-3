@@ -13,7 +13,7 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 # edit if we change repos
 REPO = "numpy/numpy"  
 # max allowed bit github      
-COMMITS_PER_PAGE = 100      
+COMMITS_PER_PAGE = 100    
 
 # initialize producer app and kafka topic
 class GitHubCommitProducer:
@@ -35,6 +35,7 @@ class GitHubCommitProducer:
         print(f"Producing to topic: {self.topic.name}")
 
         self.session = requests.Session()
+        # token error handling
         if GITHUB_TOKEN:
             self.session.headers.update({"Authorization": f"Bearer {GITHUB_TOKEN}"})
         else:

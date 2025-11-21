@@ -1,9 +1,14 @@
 from quixstreams import Application
 import os
 import json
+import duckdb
 from datetime import datetime
 
 KAFKA_BROKER = os.getenv("KAFKA_BROKER", "127.0.0.1:19092,127.0.0.1:29092,127.0.0.1:39092")
+# local duckdb 
+DB_PATH = "commits.duckdb"
+# batching to help w/ speed
+BATCH_SIZE = 100  
 
 class GitHubCommitConsumer:
     def __init__(self):
@@ -19,8 +24,42 @@ class GitHubCommitConsumer:
         self.consumer = self.app.get_consumer()
         self.consumer.subscribe([self.topic.name])
 
+        # Connect to DuckDB
+        self.conn = duckdb.connect(DB_PATH)
+        self._create_table()
+
+        # Batch buffer
+        self.buffer = []
         print(f"Connected to Kafka at {KAFKA_BROKER}")
         print(f"Subscribed to topic: {self.topic.name}")
+        print("Using DuckDB at:", DB_PATH)
+
+
+    def _create_table(self):
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS commits (
+                date TIMESTAMP,
+                sha TEXT,
+                author TEXT,
+                message TEXT
+            )
+        """)
+
+    def _flush_batch(self):
+        if not self.buffer:
+            return
+        
+        print(f"Writing batch of {len(self.buffer)} commits to DuckDB...")
+
+        self.conn.execute("""
+            INSERT INTO commits (date, sha, author, message)
+            SELECT * FROM tmp
+        """, {
+            "tmp": self.buffer
+        })
+
+        self.buffer.clear()
+
 
     def run(self):
         print("Listening for commit messages...\n")
@@ -42,7 +81,6 @@ class GitHubCommitConsumer:
                 author = commit["commit"]["author"]["name"]
                 date_str = commit["commit"]["author"]["date"]
                 date = datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-                
                 message = commit["commit"]["message"].split("\n")[0]
 
                 print(f"Commit from {date} with {sha[:7]} by {author}: {message}")
