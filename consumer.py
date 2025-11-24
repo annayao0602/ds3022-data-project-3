@@ -25,8 +25,7 @@ class GitHubCommitConsumer:
         self.consumer.subscribe([self.topic.name])
 
         # Connect to DuckDB
-        self.conn = duckdb.connect(DB_PATH)
-        self._create_table()
+        self._init_db()
 
         # Batch buffer
         self.buffer = []
@@ -35,8 +34,10 @@ class GitHubCommitConsumer:
         print("Using DuckDB at:", DB_PATH)
 
 
-    def _create_table(self):
-        self.conn.execute("""
+    def _init_db(self):
+        #creates table and closes conn immediately to release lock
+        conn = duckdb.connect(DB_PATH)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS commits (
                 date TIMESTAMP,
                 sha TEXT,
@@ -44,6 +45,7 @@ class GitHubCommitConsumer:
                 message TEXT
             )
         """)
+        conn.close()
 
     def _flush_batch(self):
         if not self.buffer:
@@ -51,14 +53,17 @@ class GitHubCommitConsumer:
         
         print(f"Writing batch of {len(self.buffer)} commits to DuckDB...")
 
-        self.conn.execute("""
-            INSERT INTO commits (date, sha, author, message)
-            SELECT * FROM tmp
-        """, {
-            "tmp": self.buffer
-        })
+        try:
+            conn = duckdb.connect(DB_PATH)
+            conn.executemany("""
+                INSERT INTO commits (date, sha, author, message)
+                VALUES (?, ?, ?, ?)
+            """, self.buffer)
 
-        self.buffer.clear()
+            conn.close()
+            self.buffer.clear()
+        except Exception as e:
+            print("Error writing to DuckDB:", e)
 
 
     def run(self):
@@ -69,6 +74,8 @@ class GitHubCommitConsumer:
                 msg = self.consumer.poll(1.0)
 
                 if msg is None:
+                    if len(self.buffer) > 0:
+                        self._flush_batch()
                     continue
                 if msg.error():
                     print("Consumer error:", msg.error())
@@ -85,9 +92,15 @@ class GitHubCommitConsumer:
 
                 print(f"Commit from {date} with {sha[:7]} by {author}: {message}")
 
+                self.buffer.append((date, sha, author, message))
+                if len(self.buffer) >= BATCH_SIZE:
+                    self._flush_batch()
+                    self.consumer.store_offsets(msg)
+
         except KeyboardInterrupt:
             print("\nStopping consumer...")
         finally:
+            self._flush_batch()
             self.consumer.close()
 
 if __name__ == "__main__":

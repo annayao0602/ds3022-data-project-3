@@ -7,24 +7,7 @@ import duckdb
 import plotly.express as px
 import pandas as pd
 
-KAFKA_BROKER = os.getenv("KAFKA_BROKER", "127.0.0.1:19092,127.0.0.1:29092,127.0.0.1:39092")
-TOPIC_NAME = "github-commits"
-
-try:
-    app_kafka = Application(
-        broker_address=KAFKA_BROKER,
-        consumer_group="display-counter",
-        auto_offset_reset="earliest",
-        consumer_extra_config={"allow.auto.create.topics": "true"}
-    )
-    topic = app_kafka.topic(name=TOPIC_NAME, value_deserializer="json")
-    consumer = app_kafka.get_consumer()
-    consumer.subscribe([TOPIC_NAME])
-    print("Kafka Consumer connected!")
-except Exception as e:
-    print(f"Kafka connection failed: {e}")
-    consumer = None
-
+DB_FILE = "commits.duckdb"
 
 app = dash.Dash(__name__)
 app.layout = html.Div([
@@ -37,9 +20,11 @@ app.layout = html.Div([
         'font-weight': 'bold',
         'margin-top': '50px'
     }),
-    html.Div("Commits Processed", style={'text-align': 'center', 'font-size': '24px', 'color': '#555'}),
+    html.Div("Commits Processed", style={'text-align': 'center', 'font-size': '20px', 'color': '#555'}),
 
-    dcc.Graph(id='activity-graph'),
+    dcc.Graph(id='activity-graph', style={'marginBottom': '40px'}),
+
+    dcc.Graph(id='author-graph', style={'height': '300px'}),
 
     # Update every 1 second (1000ms)
     dcc.Interval(id='interval-component', interval=1000, n_intervals=0)
@@ -47,47 +32,77 @@ app.layout = html.Div([
 
 @app.callback(
     [Output('counter-display', 'children'),
-     Output('activity-graph', 'figure')],
+     Output('activity-graph', 'figure'),
+     Output('author-graph', 'figure')],
     [Input('interval-component', 'n_intervals')]
 )
 def update_dashboard(n):
     try:
-        conn = duckdb.connect("commits.duckdb", read_only=True)
+        conn = duckdb.connect(DB_FILE, read_only=True)
+
+        #time series
         df = conn.execute("""
             SELECT 
-                date,
-                count(*) AS commit_count
+                date_trunc('day', date) AS day_bucket,
+                COUNT(DISTINCT sha) AS commit_count
             FROM commits
-            GROUP BY date
-            ORDER BY date ASC
+            GROUP BY day_bucket
+            ORDER BY day_bucket ASC
                           """).df()
+        
+        #top authors
+        df_authors = conn.execute("""
+            SELECT 
+                author,
+                COUNT(DISTINCT sha) AS commit_count
+            FROM commits
+            GROUP BY author
+            ORDER BY commit_count DESC
+            LIMIT 5
+        """).df()
         
         conn.close()
 
         if df.empty:
             empty_fig = px.line(title="Waiting for data...")
-            return empty_fig, "0"
+            return "0", empty_fig
         
         total_commits = df['commit_count'].sum()
 
-        fig = px.line(
+        fig_line = px.line(
             df, 
-            x='date', 
+            x='day_bucket', 
             y='commit_count', 
             title="Commit Frequency Over Time",
             markers=True
         )
         
-        fig.update_layout(
+        fig_line.update_layout(
             xaxis_title="Date", 
             yaxis_title="Commits per Day",
             template="plotly_white"
         )
+        fig_bar = px.bar(
+            df_authors, 
+            x='author', 
+            y='commit_count', 
+            orientation='v',
+            title="Top 5 Contributors",
+            text='commit_count'
+        )
+        fig_bar.update_layout(
+            yaxis={'categoryorder':'total ascending'},
+            xaxis_title="Author", 
+            yaxis_title="Number of Commits",
+            template="plotly_white",
+            margin=dict(l=20, r=20, t=30, b=30)
+        )
         
-        return fig, f"{total_commits:,}"
+        return f"{total_commits:,}", fig_line, fig_bar
 
     except Exception as e:
-        return (f"DB Error: {e}")
+        err_fig = px.line(title=f"Error: {str(e)}")
+        return "Error", err_fig, err_fig
 
     
    

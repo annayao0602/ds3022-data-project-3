@@ -2,7 +2,7 @@ from quixstreams import Application
 import os
 import json
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 
 load_dotenv()  # Load environment variables from .env file
@@ -13,7 +13,9 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 # edit if we change repos
 REPO = "numpy/numpy"  
 # max allowed bit github      
-COMMITS_PER_PAGE = 100    
+COMMITS_PER_PAGE = 100   
+#only fetch last year
+ONE_YEAR_AGO = (datetime.now(timezone.utc) - timedelta(days=365)).isoformat() 
 
 # initialize producer app and kafka topic
 class GitHubCommitProducer:
@@ -44,7 +46,9 @@ class GitHubCommitProducer:
 # fetch commits from github api
     def fetch_commits_page(self, page: int):
         url = f"https://api.github.com/repos/{REPO}/commits"
-        params = {"page": page, "per_page": COMMITS_PER_PAGE}
+        params = {"page": page, 
+                  "per_page": COMMITS_PER_PAGE,
+                  "since": ONE_YEAR_AGO}
 
         r = self.session.get(url, params=params)
         r.raise_for_status()
@@ -69,38 +73,56 @@ class GitHubCommitProducer:
             return False
 
 # print commit summary and publish
-    def process_commit(self, commit: dict):
-        sha = commit.get("sha")
-        commit_info = commit.get("commit", {})
-        author = commit_info.get("author", {}).get("name", "unknown")
-        date = commit_info.get("author", {}).get("date", "unknown")
-        message = commit_info.get("message", "").split("\n")[0]  # first line
 
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] Commit from {date} with {sha[:7]} by {author}: {message}")
+    #def process_commit(self, commit: dict):
+        #sha = commit.get("sha")
+        #commit_info = commit.get("commit", {})
+        #author = commit_info.get("author", {}).get("name", "unknown")
+        #date = commit_info.get("author", {}).get("date", "unknown")
+        #message = commit_info.get("message", "").split("\n")[0]  # first line
 
-        if self.publish_to_kafka(commit):
-            print(f"  ✓ Published {sha}")
+        #print(f"[{datetime.now().strftime('%H:%M:%S')}] Commit from {date} with {sha[:7]} by {author}: {message}")
+
+        #if self.publish_to_kafka(commit):
+            #print(f"  ✓ Published {sha}")
 
 # fetch all commits and publish
     def run(self):
         print(f"Fetching commits from GitHub repo: {REPO}")
         print("Press Ctrl+C to stop\n")
+
+        all_commits_buffer = []
         page = 1
-        while True:
-            try:
+        
+        try:
+            while True:
                 commits = self.fetch_commits_page(page)
                 if not commits:
                     print("\nNo more commits. Done.")
                     break
-                for commit in commits:
-                    self.process_commit(commit)
+                all_commits_buffer.extend(commits)
                 page += 1
-            except KeyboardInterrupt:
-                print("\nStopping producer...")
-                break
-            except Exception as e:
-                print(f"Error fetching page {page}: {e}")
-                break
+        except KeyboardInterrupt:
+            print("\nStopping producer...")
+            return
+        except Exception as e:
+            print(f"Error fetching page {page}: {e}")
+            return
+        print(f"Fetched {len(all_commits_buffer)} commits. \n")
+
+        print("reversing order...")
+        all_commits_buffer.reverse()
+
+        print("Publishing commits to Kafka...")
+        for i, commit in enumerate(all_commits_buffer):
+            sha = commit.get("sha")
+            commit_info = commit.get("commit", {})
+            author = commit_info.get("author", {}).get("name", "unknown")
+            date = commit_info.get("author", {}).get("date", "unknown")
+            message = commit_info.get("message", "").split("\n")[0]  # first line
+
+            print(f"[{i+1}/{len(all_commits_buffer)}] {date} | {author}")
+            self.publish_to_kafka(commit)
 
 if __name__ == "__main__":
     producer = GitHubCommitProducer()
