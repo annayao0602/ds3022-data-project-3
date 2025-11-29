@@ -52,7 +52,7 @@ class GitHubCommitConsumer:
             return
         
         print(f"Writing batch of {len(self.buffer)} commits to DuckDB...")
-
+        # insert batch into duckdb
         try:
             conn = duckdb.connect(DB_PATH)
             conn.executemany("""
@@ -68,7 +68,7 @@ class GitHubCommitConsumer:
 
     def run(self):
         print("Listening for commit messages...\n")
-
+        # main consume loop
         try:
             while True:
                 msg = self.consumer.poll(1.0)

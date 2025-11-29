@@ -70,20 +70,6 @@ class GitHubCommitProducer:
             print(f"Error producing commit {sha}: {e}")
             return False
 
-# print commit summary and publish
-
-    #def process_commit(self, commit: dict):
-        #sha = commit.get("sha")
-        #commit_info = commit.get("commit", {})
-        #author = commit_info.get("author", {}).get("name", "unknown")
-        #date = commit_info.get("author", {}).get("date", "unknown")
-        #message = commit_info.get("message", "").split("\n")[0]  # first line
-
-        #print(f"[{datetime.now().strftime('%H:%M:%S')}] Commit from {date} with {sha[:7]} by {author}: {message}")
-
-        #if self.publish_to_kafka(commit):
-            #print(f"  ✓ Published {sha}")
-
 # fetch all commits and publish
     def run(self):
         print(f"Fetching commits from GitHub repo: {REPO}")
@@ -91,7 +77,7 @@ class GitHubCommitProducer:
 
         all_commits_buffer = []
         page = 1
-        
+        # fetch loop
         try:
             while True:
                 commits = self.fetch_commits_page(page)
@@ -103,22 +89,23 @@ class GitHubCommitProducer:
         except KeyboardInterrupt:
             print("\nStopping producer...")
             return
+        # error handling
         except Exception as e:
             print(f"Error fetching page {page}: {e}")
             return
         print(f"Fetched {len(all_commits_buffer)} commits. \n")
-
         print("reversing order...")
         all_commits_buffer.reverse()
 
         print("Publishing commits to Kafka...")
+        # publish loop
         for i, commit in enumerate(all_commits_buffer):
             sha = commit.get("sha")
             commit_info = commit.get("commit", {})
             author = commit_info.get("author", {}).get("name", "unknown")
             date = commit_info.get("author", {}).get("date", "unknown")
             message = commit_info.get("message", "").split("\n")[0]  # first line
-
+            # log every 100 commits
             if i % 100 == 0:
                 print(f"[{i+1}/{len(all_commits_buffer)}] {date} | {author}")
             self.publish_to_kafka(commit)
