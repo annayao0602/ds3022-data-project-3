@@ -1,4 +1,5 @@
 # DS3022 Data Project 3
+NOTE: In order to run the code in our file, create a .env file with your github token named GITHUB_TOKEN.
 
 **Names:** Elaine Liu, Anna Yao
 
