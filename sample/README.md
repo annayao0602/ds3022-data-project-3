@@ -22,8 +22,9 @@ Offer a brief analysis of the data with your findings. Keep it to one brief, cle
 
 
 ## Plot / Visualization
+![2](https://github.com/user-attachments/assets/31d63ff3-5bb5-4983-aea0-2445febbf84f)
 
-Include at least one compelling plot or visualization of your work. Add images in your subdirectory and then display them using markdown in your README.md file.
+![1](https://github.com/user-attachments/assets/965cb958-de74-4fd2-a0fe-22e9dd698a6d)
 
 ## GitHub Repository
 
