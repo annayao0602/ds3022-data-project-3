@@ -1,7 +1,9 @@
-# Team Coco
+# Team Elaine & Anna
+NOTE: This program requires a .env file with a github token variable named GITHUB_TOKEN to run properly. This file is hidden through .gitignore for security purposes, so please create your own .env file if you wish to run the code.
 
 ## Team members
-
+Elaine Liu
+Anna Yao
 
 
 ## Data Source
