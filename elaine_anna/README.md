@@ -19,4 +19,4 @@ We can see that there are 40,137 total commits, which shows that NumPy is a pret
 - The line plot has an upward trend, meaning that on average, the number of commits per month has increased. We can see that the most significant peak is at around 2006, which was its official release. There is a slight dip at around 2022-2023, which could indicate developers were working on different projects/packages. Since we don't see a decline in the number of commits over time, we can assume that NumPy will not depreciate and will continue to be a popular and widely-loved Python package. 
 - Based on the top contributors bar chart, we see that Charles Harris is the overall top contributor with 7060 commits. This is quite significant, considering the second top contributor only has 2806 commits. This makes sense, since he is the NumPy release manager and has worked on its predecessor packages. 
 
-Link: https://github.com/annayao0602/ds3022-data-project-3
+Link: https://github.com/elaineliu05/dp3-coderepo
